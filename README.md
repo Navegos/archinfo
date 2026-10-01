@@ -83,7 +83,7 @@ cargo test
 ## CLI Usage
 
 ```text
-Target CPU Architecture & Hardware Instruction Set Probing Tool for Unreal Engine
+High-performance CPU features detection, architecture mapping, and compiler ISA configuration tool
 
 Usage: archinfo [OPTIONS]
 
@@ -218,9 +218,9 @@ For example:
 - `ios-aarch64-apple-m4-armv9.2-a-vl128-ios-26.0-simulator.json`
 
 ### Default Storage Paths
-- **Windows**: `%APPDATA%\Unreal Engine\ArchInfo` or `%USERPROFILE%\Documents\Unreal Engine\ArchInfo`
-- **macOS**: `~/.config/Unreal Engine/ArchInfo`
-- **Linux / FreeBSD**: `$XDG_CONFIG_HOME/Unreal Engine/ArchInfo` or `~/.config/Unreal Engine/ArchInfo`
+- **Windows**: `%APPDATA%\ArchInfo` or `%USERPROFILE%\Documents\ArchInfo`
+- **macOS**: `~/.config/ArchInfo`
+- **Linux / FreeBSD**: `$XDG_CONFIG_HOME/ArchInfo` or `~/.config/ArchInfo`
 
 ---
 

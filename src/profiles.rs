@@ -3,7 +3,7 @@
 // project: ArchInfo
 // file: src/profiles.rs
 // created: 2026-09-05
-// lastModified: 2026-09-15
+// lastModified: 2026-09-29
 
 use crate::arch::arm64::{self, Arm64CPUFeatures, TargetCpuArchitectureArm64};
 use crate::arch::x86_64::{self, TargetCpuArchitectureX64, X64CPUFeatures};

@@ -3,7 +3,7 @@
 // project: ArchInfo
 // file: src/lib.rs
 // created: 2026-09-05
-// lastModified: 2026-09-09
+// lastModified: 2026-10-01
 
 #![allow(non_camel_case_types, non_snake_case, dead_code, unused_imports)]
 
@@ -33,7 +33,10 @@ pub use arch::x86_64::{
 };
 pub use arch::CPUFeatures;
 pub use json_output::{get_default_output_dir, ArchFeaturesReport, PlatformArchMatrixReport};
-pub use platform::{Arch, Platform};
+pub use platform::{
+    is_cuda_compatible, is_metal_compatible, is_rocm_compatible, is_xpu_compatible, AppleGpuFamily,
+    Arch, CudaArch, GPUArch, MetalVersion, Platform, RocmArch, XpuArch,
+};
 pub use profiles::TargetProfile;
 pub use vector_length::{
     ClangCpuArchitecturePreferredVectorLength, ClangCpuArchitectureVectorLengthNames,

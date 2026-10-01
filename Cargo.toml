@@ -11,7 +11,7 @@ edition = "2024"
 authors = ["Copyright (c) 2026 Navegos. @DevelVitorF"]
 description = "High-performance CPU features detection, architecture mapping, and compiler ISA configuration tool"
 license = "Apache-2.0"
-repository = "https://github.com/Navegos/ArchInfo"
+repository = "https://github.com/Navegos/archinfo"
 readme = "README.md"
 
 [dependencies]

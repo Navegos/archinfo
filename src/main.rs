@@ -3,7 +3,7 @@
 // project: ArchInfo
 // file: src/main.rs
 // created: 2026-09-05
-// lastModified: 2026-09-18
+// lastModified: 2026-10-01
 
 use archinfo::{
     get_default_output_dir, Arch, ArchFeaturesReport, CpuArchitectureVectorLength,
@@ -46,6 +46,30 @@ struct Cli {
     /// Preferred vector length for SIMD code generation (128, 256, 512, vl128, vl256, vl512)
     #[arg(short = 'v', long = "vector-length", visible_alias = "vl", alias = "vector")]
     vector_length: Option<String>,
+
+    /// Target GPU architecture family (native, cuda, rocm, xpu, metal). Accepts multi-values (e.g. cuda;rocm).
+    #[arg(short = 'G', long = "gpu-arch", visible_alias = "gpu_arch", alias = "gpu", value_delimiter = ';', num_args = 1..)]
+    gpu_arch: Option<Vec<String>>,
+
+    /// Target CUDA GPU architecture(s) (75, 80, 86, 87, 89, 90, 100, 103, 110, 120, 121). Accepts multi-values (e.g. 75;86;89;120). Default: 75.
+    #[arg(short = 'C', long = "cuda-arch", visible_alias = "cuda_arch", alias = "cuda", alias = "cu", value_delimiter = ';', num_args = 1..)]
+    cuda_arch: Option<Vec<String>>,
+
+    /// Target ROCm GPU architecture(s) (908, 90a, 940, 941, 942, 950, 1030, 1031, 1032, 1034, 1035, 1036, 1100, 1101, 1102, 1103, 1150, 1151, 1152, 1153, 1170, 1171, 1172, 1200, 1201). Accepts multi-values (e.g. 908;90a;950;1030). Default: 1030.
+    #[arg(short = 'R', long = "rocm-arch", visible_alias = "rocm_arch", alias = "rocm", alias = "hip", alias = "ro", value_delimiter = ';', num_args = 1..)]
+    rocm_arch: Option<Vec<String>>,
+
+    /// Target Intel XPU architecture (bmg, lnl, ptl). Accepts multi-values. Default: bmg.
+    #[arg(short = 'X', long = "xpu-arch", visible_alias = "xpu_arch", alias = "xpu", value_delimiter = ';', num_args = 1..)]
+    xpu_arch: Option<Vec<String>>,
+
+    /// Target Apple Metal GPU family (apple2..apple10). Accepts multi-values (e.g. apple7;apple8;apple9;apple10).
+    #[arg(long = "metal-family", visible_alias = "metal_family", alias = "metal-gpu-family", alias = "metal_gpu_family", value_delimiter = ';', num_args = 1..)]
+    metal_family: Option<Vec<String>>,
+
+    /// Target Apple Metal version (metal, metal3, metal4).
+    #[arg(long = "metal-version", visible_alias = "metal_version", alias = "metal")]
+    metal_version: Option<String>,
 
     /// Path to output JSON file or directory. If omitted, uses standard Unreal Engine/ArchInfo directory.
     #[arg(short, long)]
@@ -115,6 +139,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         None => None,
     };
 
+    let gpu_arch_arg = cli.gpu_arch.as_ref().map(|v| v.join(";"));
+    let cuda_arch_arg = cli.cuda_arch.as_ref().map(|v| v.join(";"));
+    let rocm_arch_arg = cli.rocm_arch.as_ref().map(|v| v.join(";"));
+    let xpu_arch_arg = cli.xpu_arch.as_ref().map(|v| v.join(";"));
+    let metal_family_arg = cli.metal_family.as_ref().map(|v| v.join(";"));
+    let metal_version_arg = cli.metal_version.as_deref();
+
     let arch = match cli.arch.as_deref() {
         Some(a) => Some(a.parse::<Arch>()?),
         None => None,
@@ -135,7 +166,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // When no arguments are passed, evaluate defaults to native host platform, host arch, and live CPUFeatures probing
-    let report = ArchFeaturesReport::evaluate_target_triple(
+    let report = ArchFeaturesReport::evaluate_target_triple_with_gpu(
         platform,
         arch,
         target_opt,
@@ -147,6 +178,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         cli.target_os_level.as_deref(),
         cli.target_runtime_level.as_deref(),
         target_is_simulator,
+        gpu_arch_arg.as_deref(),
+        cuda_arch_arg.as_deref(),
+        rocm_arch_arg.as_deref(),
+        xpu_arch_arg.as_deref(),
+        metal_family_arg.as_deref(),
+        metal_version_arg,
     )?;
 
     // Console output based on format
@@ -181,6 +218,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Some(ref vlen) = report.target_clang_vlen {
                 if !vlen.is_empty() {
                     flags.push(vlen.clone());
+                }
+            }
+            if let Some(ref cuda_sm) = report.cuda_sm_arch {
+                if !cuda_sm.is_empty() {
+                    for sm in cuda_sm.split(';') {
+                        flags.push(format!("--cuda-gpu-arch={}", sm));
+                    }
+                }
+            }
+            if let Some(ref rocm_gfx) = report.rocm_gfx_arch {
+                if !rocm_gfx.is_empty() {
+                    for gfx in rocm_gfx.split(';') {
+                        flags.push(format!("--offload-arch={}", gfx));
+                    }
                 }
             }
             println!("{}", flags.join(" "));

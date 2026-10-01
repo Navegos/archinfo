@@ -3,7 +3,7 @@
 // project: ArchInfo
 // file: tests/matrix_tests.rs
 // created: 2026-09-05
-// lastModified: 2026-09-18
+// lastModified: 2026-10-01
 
 use archinfo::*;
 
@@ -120,13 +120,11 @@ fn test_native_platform_and_arch() {
 fn test_default_output_dir() {
     let dir = get_default_output_dir();
     let dir_str = dir.to_string_lossy();
-    assert!(dir_str.contains("Unreal Engine"));
     assert!(dir_str.contains("ArchInfo"));
 
     let report = ArchFeaturesReport::evaluate(Some(Platform::Windows), Some(Arch::X86_64), Some("native")).unwrap();
     let file_path = report.default_filepath();
     let path_str = file_path.to_string_lossy();
-    assert!(path_str.contains("Unreal Engine"));
     assert!(path_str.contains("ArchInfo"));
     assert!(path_str.ends_with(".json"));
 }
@@ -2464,5 +2462,684 @@ fn test_freebsd_riscv64_probe_defaults() {
         let _ = probe.hwcap;
     }
 }
+
+#[test]
+fn test_cuda_arch_multivalue_formatting() {
+    let parsed_semicolon = CudaArch::parse_multivalue("75;86;89;120").unwrap();
+    assert_eq!(
+        parsed_semicolon,
+        vec![CudaArch::Sm_75, CudaArch::Sm_86, CudaArch::Sm_89, CudaArch::Sm_120]
+    );
+    assert_eq!(CudaArch::format_cuda_arch(&parsed_semicolon), "75;86;89;120");
+    assert_eq!(CudaArch::format_cuda_sm_arch(&parsed_semicolon), "sm_75;sm_86;sm_89;sm_120");
+
+    // Comma and plus delimiter support
+    let parsed_comma = CudaArch::parse_multivalue("86,89,90").unwrap();
+    assert_eq!(parsed_comma, vec![CudaArch::Sm_86, CudaArch::Sm_89, CudaArch::Sm_90]);
+    assert_eq!(CudaArch::format_cuda_arch(&parsed_comma), "86;89;90");
+    assert_eq!(CudaArch::format_cuda_sm_arch(&parsed_comma), "sm_86;sm_89;sm_90");
+
+    let parsed_plus = CudaArch::parse_multivalue("86+89+90").unwrap();
+    assert_eq!(parsed_plus, vec![CudaArch::Sm_86, CudaArch::Sm_89, CudaArch::Sm_90]);
+    assert_eq!(CudaArch::format_cuda_arch(&parsed_plus), "86;89;90");
+    assert_eq!(CudaArch::format_cuda_sm_arch(&parsed_plus), "sm_86;sm_89;sm_90");
+
+    // Default when empty
+    let empty = CudaArch::parse_multivalue("").unwrap();
+    assert_eq!(empty, vec![CudaArch::Sm_75]);
+    assert_eq!(CudaArch::format_cuda_arch(&empty), "75");
+    assert_eq!(CudaArch::format_cuda_sm_arch(&empty), "sm_75");
+
+    // Invalid arch fails
+    assert!(CudaArch::parse_multivalue("999").is_err());
+    assert!(CudaArch::parse_multivalue("invalid").is_err());
+}
+
+#[test]
+fn test_cuda_arch_report_json() {
+    // x86_64 target with custom cuda_arch
+    let report_x64 = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Windows),
+        Some(Arch::X86_64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        false,
+        None,
+        Some("86+89+90"),
+        None,
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(report_x64.gpu_arch.as_deref(), Some("cuda"));
+    assert_eq!(report_x64.cuda_arch.as_deref(), Some("86;89;90"));
+    assert_eq!(report_x64.cuda_sm_arch.as_deref(), Some("sm_86;sm_89;sm_90"));
+    let json_x64 = report_x64.to_json().unwrap();
+    assert!(json_x64.contains("\"gpu_arch\": \"cuda\""));
+    assert!(json_x64.contains("\"cuda_arch\": \"86;89;90\""));
+    assert!(json_x64.contains("\"cuda_sm_arch\": \"sm_86;sm_89;sm_90\""));
+
+    // arm64ec target with custom cuda_arch
+    let report_arm = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Windows),
+        Some(Arch::Arm64EC),
+        Some("kryo"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        false,
+        None,
+        Some("86,89,90"),
+        None,
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(report_arm.gpu_arch.as_deref(), Some("cuda"));
+    assert_eq!(report_arm.cuda_arch.as_deref(), Some("86;89;90"));
+    assert_eq!(report_arm.cuda_sm_arch.as_deref(), Some("sm_86;sm_89;sm_90"));
+
+    // Default when no GPU args provided on x86_64: empty string
+    let default_x64 = ArchFeaturesReport::evaluate(Some(Platform::Windows), Some(Arch::X86_64), Some("generic")).unwrap();
+    assert_eq!(default_x64.gpu_arch.as_deref(), Some(""));
+    assert_eq!(default_x64.cuda_arch.as_deref(), Some(""));
+    assert_eq!(default_x64.cuda_sm_arch.as_deref(), Some(""));
+
+    // Explicit gpu_arch = "cuda" gets desktop gaming default 75
+    let gaming_cuda = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Windows),
+        Some(Arch::X86_64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        false,
+        Some("cuda"),
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(gaming_cuda.gpu_arch.as_deref(), Some("cuda"));
+    assert_eq!(gaming_cuda.cuda_arch.as_deref(), Some("75"));
+    assert_eq!(gaming_cuda.cuda_sm_arch.as_deref(), Some("sm_75"));
+
+    // riscv64 is always empty string for cuda
+    let report_riscv = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Linux),
+        Some(Arch::Riscv64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        false,
+        None,
+        Some("86+89+90"),
+        None,
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(report_riscv.cuda_arch.as_deref(), Some(""));
+    assert_eq!(report_riscv.cuda_sm_arch.as_deref(), Some(""));
+}
+
+#[test]
+fn test_rocm_arch_multivalue_formatting() {
+    let parsed_semi = RocmArch::parse_multivalue("908;90a;950;1030").unwrap();
+    assert_eq!(parsed_semi, vec![RocmArch::Gfx908, RocmArch::Gfx90a, RocmArch::Gfx950, RocmArch::Gfx1030]);
+    assert_eq!(RocmArch::format_rocm_arch(&parsed_semi), "908;90a;950;1030");
+    assert_eq!(RocmArch::format_rocm_gfx_arch(&parsed_semi), "gfx908;gfx90a;gfx950;gfx1030");
+
+    let parsed_comma = RocmArch::parse_multivalue("908,90a,950,1030").unwrap();
+    assert_eq!(parsed_comma, vec![RocmArch::Gfx908, RocmArch::Gfx90a, RocmArch::Gfx950, RocmArch::Gfx1030]);
+    assert_eq!(RocmArch::format_rocm_arch(&parsed_comma), "908;90a;950;1030");
+    assert_eq!(RocmArch::format_rocm_gfx_arch(&parsed_comma), "gfx908;gfx90a;gfx950;gfx1030");
+
+    let parsed_plus = RocmArch::parse_multivalue("908+90a+950+1030").unwrap();
+    assert_eq!(parsed_plus, vec![RocmArch::Gfx908, RocmArch::Gfx90a, RocmArch::Gfx950, RocmArch::Gfx1030]);
+    assert_eq!(RocmArch::format_rocm_arch(&parsed_plus), "908;90a;950;1030");
+    assert_eq!(RocmArch::format_rocm_gfx_arch(&parsed_plus), "gfx908;gfx90a;gfx950;gfx1030");
+
+    // Default when empty is 1030
+    let empty = RocmArch::parse_multivalue("").unwrap();
+    assert_eq!(empty, vec![RocmArch::Gfx1030]);
+    assert_eq!(RocmArch::format_rocm_arch(&empty), "1030");
+    assert_eq!(RocmArch::format_rocm_gfx_arch(&empty), "gfx1030");
+
+    // Invalid arch fails
+    assert!(RocmArch::parse_multivalue("999").is_err());
+    assert!(RocmArch::parse_multivalue("invalid").is_err());
+}
+
+#[test]
+fn test_rocm_arch_report_json() {
+    // x86_64 target with custom rocm_arch
+    let report_x64 = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Windows),
+        Some(Arch::X86_64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        false,
+        None,
+        None,
+        Some("908+90a+950+1030"),
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(report_x64.gpu_arch.as_deref(), Some("rocm"));
+    assert_eq!(report_x64.rocm_arch.as_deref(), Some("908;90a;950;1030"));
+    assert_eq!(report_x64.rocm_gfx_arch.as_deref(), Some("gfx908;gfx90a;gfx950;gfx1030"));
+    let json_x64 = report_x64.to_json().unwrap();
+    assert!(json_x64.contains("\"rocm_arch\": \"908;90a;950;1030\""));
+    assert!(json_x64.contains("\"rocm_gfx_arch\": \"gfx908;gfx90a;gfx950;gfx1030\""));
+
+    // Default rocm arch for x86_64 when none provided: empty string
+    let default_x64 = ArchFeaturesReport::evaluate(Some(Platform::Windows), Some(Arch::X86_64), Some("generic")).unwrap();
+    assert_eq!(default_x64.rocm_arch.as_deref(), Some(""));
+    assert_eq!(default_x64.rocm_gfx_arch.as_deref(), Some(""));
+
+    // Explicit gpu_arch = "rocm" gets desktop gaming default 1030
+    let gaming_rocm = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Windows),
+        Some(Arch::X86_64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        false,
+        Some("rocm"),
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(gaming_rocm.gpu_arch.as_deref(), Some("rocm"));
+    assert_eq!(gaming_rocm.rocm_arch.as_deref(), Some("1030"));
+    assert_eq!(gaming_rocm.rocm_gfx_arch.as_deref(), Some("gfx1030"));
+
+    // arm64ec is empty string for rocm
+    let report_arm = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Windows),
+        Some(Arch::Arm64EC),
+        Some("kryo"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        false,
+        None,
+        None,
+        Some("908,90a,950,1030"),
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(report_arm.rocm_arch.as_deref(), Some(""));
+    assert_eq!(report_arm.rocm_gfx_arch.as_deref(), Some(""));
+
+    // riscv64 is always empty string for rocm
+    let report_riscv = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Linux),
+        Some(Arch::Riscv64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        false,
+        None,
+        None,
+        Some("908+90a+950+1030"),
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(report_riscv.rocm_arch.as_deref(), Some(""));
+    assert_eq!(report_riscv.rocm_gfx_arch.as_deref(), Some(""));
+}
+
+#[test]
+fn test_gpu_arch_multivalue_formatting_and_native_rejection() {
+    let parsed_multi = GPUArch::parse_multivalue("cuda;rocm;xpu;metal").unwrap();
+    assert_eq!(
+        parsed_multi,
+        vec![GPUArch::Cuda, GPUArch::Rocm, GPUArch::Xpu, GPUArch::Metal]
+    );
+    assert_eq!(GPUArch::format_gpu_arch(&parsed_multi), "cuda;rocm;xpu;metal");
+
+    let parsed_comma = GPUArch::parse_multivalue("cuda,xpu").unwrap();
+    assert_eq!(parsed_comma, vec![GPUArch::Cuda, GPUArch::Xpu]);
+    assert_eq!(GPUArch::format_gpu_arch(&parsed_comma), "cuda;xpu");
+
+    let parsed_native = GPUArch::parse_multivalue("native").unwrap();
+    assert_eq!(parsed_native, vec![GPUArch::Native]);
+
+    // Native CANNOT be combined with any other GPU arch
+    assert!(GPUArch::parse_multivalue("native;cuda").is_err());
+    assert!(GPUArch::parse_multivalue("cuda,native").is_err());
+    assert!(GPUArch::parse_multivalue("native+metal").is_err());
+}
+
+#[test]
+fn test_xpu_arch_multivalue_formatting_and_defaults() {
+    let parsed = XpuArch::parse_multivalue("bmg;lnl;ptl").unwrap();
+    assert_eq!(parsed, vec![XpuArch::Bmg, XpuArch::Lnl, XpuArch::Ptl]);
+    assert_eq!(XpuArch::format_xpu_arch(&parsed), "bmg;lnl;ptl");
+
+    let empty = XpuArch::parse_multivalue("").unwrap();
+    assert_eq!(empty, vec![XpuArch::Bmg]);
+    assert_eq!(XpuArch::format_xpu_arch(&empty), "bmg");
+
+    // Report with xpu_arch on x86_64
+    let report = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Windows),
+        Some(Arch::X86_64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        false,
+        None,
+        None,
+        None,
+        Some("bmg;lnl"),
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(report.gpu_arch.as_deref(), Some("xpu"));
+    assert_eq!(report.xpu_arch.as_deref(), Some("bmg;lnl"));
+
+    // Explicit gpu_arch = "xpu" defaults to desktop gaming "bmg"
+    let report_def = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Linux),
+        Some(Arch::X86_64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        false,
+        Some("xpu"),
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(report_def.xpu_arch.as_deref(), Some("bmg"));
+
+    // arm64 / consoles / riscv64 is empty for xpu
+    let report_arm = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Windows),
+        Some(Arch::Arm64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        false,
+        None,
+        None,
+        None,
+        Some("bmg"),
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(report_arm.xpu_arch.as_deref(), Some(""));
+}
+
+#[test]
+fn test_metal_family_and_version_compatibility() {
+    let families = AppleGpuFamily::parse_multivalue("apple7;apple8;apple9;apple10").unwrap();
+    assert_eq!(
+        families,
+        vec![
+            AppleGpuFamily::Apple7,
+            AppleGpuFamily::Apple8,
+            AppleGpuFamily::Apple9,
+            AppleGpuFamily::Apple10
+        ]
+    );
+    assert_eq!(
+        AppleGpuFamily::format_metal_family(&families),
+        "apple7;apple8;apple9;apple10"
+    );
+
+    // Apple2..Apple6 only accepts LegacyMetal ("metal")
+    let rep_apple6_metal = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Macosx),
+        Some(Arch::Arm64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some("15.0"),
+        None,
+        false,
+        None,
+        None,
+        None,
+        None,
+        Some("apple6"),
+        Some("metal"),
+    );
+    assert!(rep_apple6_metal.is_ok());
+
+    let rep_apple6_metal3 = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Macosx),
+        Some(Arch::Arm64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some("15.0"),
+        None,
+        false,
+        None,
+        None,
+        None,
+        None,
+        Some("apple6"),
+        Some("metal3"),
+    );
+    assert!(rep_apple6_metal3.is_err());
+
+    // Apple7..Apple10 rejects metal (LegacyMetal)
+    let rep_apple7_metal = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Macosx),
+        Some(Arch::Arm64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some("15.0"),
+        None,
+        false,
+        None,
+        None,
+        None,
+        None,
+        Some("apple7"),
+        Some("metal"),
+    );
+    assert!(rep_apple7_metal.is_err());
+
+    let rep_apple7_metal3 = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Macosx),
+        Some(Arch::Arm64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some("15.0"),
+        None,
+        false,
+        None,
+        None,
+        None,
+        None,
+        Some("apple7"),
+        Some("metal3"),
+    );
+    assert!(rep_apple7_metal3.is_ok());
+
+    // Apple10 prefers metal4 on macOS >= 26.0
+    let rep_apple10 = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Macosx),
+        Some(Arch::Arm64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some("26.0"),
+        None,
+        false,
+        None,
+        None,
+        None,
+        None,
+        Some("apple10"),
+        None,
+    )
+    .unwrap();
+    assert_eq!(rep_apple10.metal_version.as_deref(), Some("metal4"));
+
+    // Apple10 falls back to metal3 on macOS < 26.0
+    let rep_apple10_old = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Macosx),
+        Some(Arch::Arm64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some("15.0"),
+        None,
+        false,
+        None,
+        None,
+        None,
+        None,
+        Some("apple10"),
+        None,
+    )
+    .unwrap();
+    assert_eq!(rep_apple10_old.metal_version.as_deref(), Some("metal3"));
+
+    // Metal4 on macOS 15.0 should fail target_os_level validation
+    let rep_metal4_old_os = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Macosx),
+        Some(Arch::Arm64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some("15.0"),
+        None,
+        false,
+        None,
+        None,
+        None,
+        None,
+        Some("apple10"),
+        Some("metal4"),
+    );
+    assert!(rep_metal4_old_os.is_err());
+}
+
+#[test]
+fn test_apple_platform_defaults() {
+    // macOS default target_os_level is 15.0 (< 26.0), so metal_version defaults to metal3
+    let report_mac = ArchFeaturesReport::evaluate(Some(Platform::Macosx), Some(Arch::Arm64), Some("generic")).unwrap();
+    assert_eq!(report_mac.gpu_arch.as_deref(), Some("metal"));
+    assert_eq!(
+        report_mac.metal_family.as_deref(),
+        Some("apple7;apple8;apple9;apple10")
+    );
+    assert_eq!(report_mac.metal_version.as_deref(), Some("metal3"));
+
+    // iOS default target_os_level is 26.0 (>= 26.0), so metal_version defaults to metal4
+    let report_ios = ArchFeaturesReport::evaluate(Some(Platform::Ios), Some(Arch::Arm64), Some("generic")).unwrap();
+    assert_eq!(report_ios.gpu_arch.as_deref(), Some("metal"));
+    assert_eq!(
+        report_ios.metal_family.as_deref(),
+        Some("apple7;apple8;apple9;apple10")
+    );
+    assert_eq!(report_ios.metal_version.as_deref(), Some("metal4"));
+
+    // macOS with target_os_level 26.0 defaults to metal4
+    let report_mac_26 = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Macosx),
+        Some(Arch::Arm64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some("26.0"),
+        None,
+        false,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(report_mac_26.metal_version.as_deref(), Some("metal4"));
+
+    // Metal on non-Apple platform is empty string
+    let report_win = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Windows),
+        Some(Arch::Arm64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        false,
+        None,
+        None,
+        None,
+        None,
+        Some("apple10"),
+        Some("metal4"),
+    )
+    .unwrap();
+    assert_eq!(report_win.metal_family.as_deref(), Some(""));
+    assert_eq!(report_win.metal_version.as_deref(), Some(""));
+}
+
+#[test]
+fn test_multi_gpu_arch_selection() {
+    // Specifying multiple GPU archs in gpu_arch selects desktop gaming for each
+    let report = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Windows),
+        Some(Arch::X86_64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        false,
+        Some("cuda;rocm;xpu"),
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(report.gpu_arch.as_deref(), Some("cuda;rocm;xpu"));
+    assert_eq!(report.cuda_arch.as_deref(), Some("75"));
+    assert_eq!(report.rocm_arch.as_deref(), Some("1030"));
+    assert_eq!(report.xpu_arch.as_deref(), Some("bmg"));
+
+    // Inferring multiple gpu_arch from cuda_arch + rocm_arch
+    let report_inferred = ArchFeaturesReport::evaluate_target_triple_with_gpu(
+        Some(Platform::Windows),
+        Some(Arch::X86_64),
+        Some("generic"),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        false,
+        None,
+        Some("86"),
+        Some("1030"),
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    assert_eq!(report_inferred.gpu_arch.as_deref(), Some("cuda;rocm"));
+    assert_eq!(report_inferred.cuda_arch.as_deref(), Some("86"));
+    assert_eq!(report_inferred.rocm_arch.as_deref(), Some("1030"));
+}
+
 
 

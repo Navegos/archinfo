@@ -3,7 +3,7 @@
 // project: ArchInfo
 // file: src/arch/mod.rs
 // created: 2026-09-05
-// lastModified: 2026-09-15
+// lastModified: 2026-09-29
 
 pub mod arm64;
 pub mod riscv64;

@@ -3,13 +3,16 @@
 // project: ArchInfo
 // file: src/json_output.rs
 // created: 2026-09-05
-// lastModified: 2026-09-18
+// lastModified: 2026-10-01
 
 use crate::arch::arm64::{self, Arm64CPUFeatures, Arm64ISA, MinimumCpuArchitectureArm64, MinimumCpuArchitectureArm64ClangNames, TargetCpuArchitectureArm64, TargetCpuArchitectureArm64Names};
 use crate::arch::riscv64::{self, Riscv64CPUFeatures, Riscv64ISA, TargetCpuArchitectureRiscv64, TargetCpuArchitectureRiscv64Names};
 use crate::arch::x86_64::{self, MinimumCpuArchitectureX64, TargetCpuArchitectureX64, TargetCpuArchitectureX64Names, X64CPUFeatures, X64ISA};
 use crate::arch::CPUFeatures;
-use crate::platform::{Arch, Platform};
+use crate::platform::{
+    is_cuda_compatible, is_metal_compatible, is_rocm_compatible, is_xpu_compatible, AppleGpuFamily,
+    Arch, CudaArch, GPUArch, MetalVersion, Platform, RocmArch, XpuArch,
+};
 use crate::profiles::TargetProfile;
 use crate::vector_length::CpuArchitectureVectorLength;
 use serde::{Deserialize, Serialize};
@@ -19,24 +22,24 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 /// Returns the default output folder based on the operating system:
-/// - Windows: `<USER>/AppData/Roaming/Unreal Engine/ArchInfo` or `<USER>/Documents/Unreal Engine/ArchInfo`
-/// - macOS: `/Users/<USER>/.config/Unreal Engine/ArchInfo`
-/// - Linux/FreeBSD: `/home/<USER>/.config/Unreal Engine/ArchInfo` or `/home/<USER>/Documents/Unreal Engine/ArchInfo`
+/// - Windows: `<USER>/AppData/Roaming/ArchInfo` or `<USER>/Documents/ArchInfo`
+/// - macOS: `/Users/<USER>/.config/ArchInfo`
+/// - Linux/FreeBSD: `/home/<USER>/.config/ArchInfo` or `/home/<USER>/Documents/ArchInfo`
 pub fn get_default_output_dir() -> PathBuf {
     #[cfg(target_os = "windows")]
     {
         if let Ok(appdata) = std::env::var("APPDATA") {
             if !appdata.trim().is_empty() {
-                return PathBuf::from(appdata).join("Unreal Engine").join("ArchInfo");
+                return PathBuf::from(appdata).join("ArchInfo");
             }
         }
         if let Ok(userprofile) = std::env::var("USERPROFILE") {
-            let docs = PathBuf::from(&userprofile).join("Documents").join("Unreal Engine").join("ArchInfo");
+            let docs = PathBuf::from(&userprofile).join("Documents").join("ArchInfo");
             let docs_parent = PathBuf::from(&userprofile).join("Documents");
             if docs_parent.exists() {
                 return docs;
             }
-            return PathBuf::from(userprofile).join("AppData").join("Roaming").join("Unreal Engine").join("ArchInfo");
+            return PathBuf::from(userprofile).join("AppData").join("Roaming").join("ArchInfo");
         }
     }
 
@@ -44,12 +47,12 @@ pub fn get_default_output_dir() -> PathBuf {
     {
         if let Ok(home) = std::env::var("HOME") {
             if !home.trim().is_empty() {
-                return PathBuf::from(home).join(".config").join("Unreal Engine").join("ArchInfo");
+                return PathBuf::from(home).join(".config").join("ArchInfo");
             }
         }
         if let Ok(user) = std::env::var("USER") {
             if !user.trim().is_empty() {
-                return PathBuf::from("/Users").join(user).join(".config").join("Unreal Engine").join("ArchInfo");
+                return PathBuf::from("/Users").join(user).join(".config").join("ArchInfo");
             }
         }
     }
@@ -58,23 +61,23 @@ pub fn get_default_output_dir() -> PathBuf {
     {
         if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
             if !xdg.trim().is_empty() {
-                return PathBuf::from(xdg).join("Unreal Engine").join("ArchInfo");
+                return PathBuf::from(xdg).join("ArchInfo");
             }
         }
         if let Ok(home) = std::env::var("HOME") {
             if !home.trim().is_empty() {
-                let config_dir = PathBuf::from(&home).join(".config").join("Unreal Engine").join("ArchInfo");
+                let config_dir = PathBuf::from(&home).join(".config").join("ArchInfo");
                 return config_dir;
             }
         }
         if let Ok(user) = std::env::var("USER") {
             if !user.trim().is_empty() {
-                return PathBuf::from("/home").join(user).join(".config").join("Unreal Engine").join("ArchInfo");
+                return PathBuf::from("/home").join(user).join(".config").join("ArchInfo");
             }
         }
     }
 
-    PathBuf::from(".").join("Unreal Engine").join("ArchInfo")
+    PathBuf::from(".").join("ArchInfo")
 }
 
 fn parse_extension_tokens(s: &str) -> Vec<&str> {
@@ -517,6 +520,14 @@ pub fn compute_target_clang_triple(
     let p = platform.resolve();
     let a = arch.resolve();
 
+    // TODO: Fix this on the right place
+    /* if a == GPUArch::Cuda {
+        return Ok(("--target='nvptx64-nvidia-cuda'".to_string(), "".to_string(), "".to_string()));
+    }
+    if a == GPUArch::Rocm {
+        return Ok(("--target='amdgcn-amd-amdhsa'".to_string(), "".to_string(), "".to_string()));
+    } */
+
     if target_is_simulator {
         if !matches!(p, Platform::Ios | Platform::Tvos | Platform::Xros) {
             return Err("-simulator is only accepted for IOS, TVOS, or XrOS".to_string());
@@ -808,6 +819,55 @@ fn default_some_empty() -> Option<String> {
 pub struct ArchFeaturesReport {
     pub platform: String,
     pub arch: String,
+    #[serde(
+        default = "default_some_empty",
+        serialize_with = "serialize_opt_string_as_empty",
+        deserialize_with = "deserialize_opt_string_empty_if_none"
+    )]
+    pub gpu_arch: Option<String>,
+    #[serde(
+        default = "default_some_empty",
+        serialize_with = "serialize_opt_string_as_empty",
+        deserialize_with = "deserialize_opt_string_empty_if_none"
+    )]
+    pub cuda_arch: Option<String>,
+    #[serde(
+        default = "default_some_empty",
+        serialize_with = "serialize_opt_string_as_empty",
+        deserialize_with = "deserialize_opt_string_empty_if_none"
+    )]
+    pub cuda_sm_arch: Option<String>,
+    #[serde(
+        default = "default_some_empty",
+        serialize_with = "serialize_opt_string_as_empty",
+        deserialize_with = "deserialize_opt_string_empty_if_none"
+    )]
+    pub rocm_arch: Option<String>,
+    #[serde(
+        default = "default_some_empty",
+        alias = "rocm_sm_arch",
+        serialize_with = "serialize_opt_string_as_empty",
+        deserialize_with = "deserialize_opt_string_empty_if_none"
+    )]
+    pub rocm_gfx_arch: Option<String>,
+    #[serde(
+        default = "default_some_empty",
+        serialize_with = "serialize_opt_string_as_empty",
+        deserialize_with = "deserialize_opt_string_empty_if_none"
+    )]
+    pub xpu_arch: Option<String>,
+    #[serde(
+        default = "default_some_empty",
+        serialize_with = "serialize_opt_string_as_empty",
+        deserialize_with = "deserialize_opt_string_empty_if_none"
+    )]
+    pub metal_family: Option<String>,
+    #[serde(
+        default = "default_some_empty",
+        serialize_with = "serialize_opt_string_as_empty",
+        deserialize_with = "deserialize_opt_string_empty_if_none"
+    )]
+    pub metal_version: Option<String>,
     pub extensions: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_cpu: Option<String>,
@@ -872,6 +932,196 @@ fn extract_major_minor(version_str: &str) -> String {
         format!("{}.{}", parts[0], parts[1])
     } else {
         trimmed.to_string()
+    }
+}
+
+fn parse_os_version(s: &str) -> Option<(u32, u32)> {
+    let clean = s.trim().trim_start_matches('v');
+    let parts: Vec<&str> = clean.split('.').collect();
+    if parts.is_empty() {
+        return None;
+    }
+    let major: u32 = parts[0].parse().ok()?;
+    let minor: u32 = if parts.len() > 1 {
+        parts[1].parse().ok()?
+    } else {
+        0
+    };
+    Some((major, minor))
+}
+
+pub fn is_metal_version_os_compatible(
+    platform: Platform,
+    version: MetalVersion,
+    os_level_str: Option<&str>,
+) -> bool {
+    let (major, minor) = match os_level_str.and_then(parse_os_version) {
+        Some(v) => v,
+        None => (26, 0),
+    };
+
+    match version {
+        MetalVersion::LegacyMetal => match platform.resolve() {
+            Platform::Macosx => major > 10 || (major == 10 && minor >= 15),
+            Platform::Ios | Platform::Tvos => major >= 13,
+            Platform::Xros => major >= 1,
+            _ => false,
+        },
+        MetalVersion::Metal3 => match platform.resolve() {
+            Platform::Macosx => major >= 13,
+            Platform::Ios | Platform::Tvos => major >= 16,
+            Platform::Xros => major >= 1,
+            _ => false,
+        },
+        MetalVersion::Metal4 => match platform.resolve() {
+            Platform::Macosx | Platform::Ios | Platform::Tvos | Platform::Xros => major >= 26,
+            _ => false,
+        },
+    }
+}
+
+fn resolve_metal_version_and_validate(
+    platform: Platform,
+    families: &[AppleGpuFamily],
+    user_version_opt: Option<&str>,
+    target_os_level: Option<&str>,
+    is_default_family: bool,
+) -> Result<MetalVersion, String> {
+    let has_legacy = families.iter().any(|f| {
+        matches!(
+            f,
+            AppleGpuFamily::Apple2
+                | AppleGpuFamily::Apple3
+                | AppleGpuFamily::Apple4
+                | AppleGpuFamily::Apple5
+                | AppleGpuFamily::Apple6
+        )
+    });
+    let has_modern = families.iter().any(|f| {
+        matches!(
+            f,
+            AppleGpuFamily::Apple7
+                | AppleGpuFamily::Apple8
+                | AppleGpuFamily::Apple9
+                | AppleGpuFamily::Apple10
+        )
+    });
+
+    if has_legacy && has_modern {
+        return Err(
+            "Cannot combine legacy Apple GPU families (apple2-apple6) with modern families (apple7-apple10)".to_string(),
+        );
+    }
+
+    if let Some(v_str) = user_version_opt.filter(|s| !s.trim().is_empty()) {
+        let v: MetalVersion = v_str.parse()?;
+        if has_legacy && v != MetalVersion::LegacyMetal {
+            return Err(format!(
+                "Apple GPU family {} only accepts metal_version 'metal'",
+                AppleGpuFamily::format_metal_arch(families)
+            ));
+        }
+        if has_modern && v == MetalVersion::LegacyMetal {
+            return Err(format!(
+                "Apple GPU family {} only accepts metal_version 'metal3' or 'metal4'",
+                AppleGpuFamily::format_metal_arch(families)
+            ));
+        }
+        if !is_metal_version_os_compatible(platform, v, target_os_level) {
+            let os_str = target_os_level.unwrap_or("unknown");
+            return Err(format!(
+                "Metal version '{}' is not supported on {} target OS level {}",
+                v, platform, os_str
+            ));
+        }
+        Ok(v)
+    } else if has_legacy {
+        if is_metal_version_os_compatible(platform, MetalVersion::LegacyMetal, target_os_level) {
+            Ok(MetalVersion::LegacyMetal)
+        } else {
+            let os_str = target_os_level.unwrap_or("unknown");
+            Err(format!(
+                "Legacy metal is not supported on {} target OS level {}",
+                platform, os_str
+            ))
+        }
+    } else {
+        let has_apple10 = families.contains(&AppleGpuFamily::Apple10);
+        if is_default_family || has_apple10 {
+            if is_metal_version_os_compatible(platform, MetalVersion::Metal4, target_os_level) {
+                Ok(MetalVersion::Metal4)
+            } else if is_metal_version_os_compatible(
+                platform,
+                MetalVersion::Metal3,
+                target_os_level,
+            ) {
+                Ok(MetalVersion::Metal3)
+            } else {
+                let os_str = target_os_level.unwrap_or("unknown");
+                Err(format!(
+                    "Metal 3 or 4 is not supported on {} target OS level {}",
+                    platform, os_str
+                ))
+            }
+        } else if is_metal_version_os_compatible(platform, MetalVersion::Metal3, target_os_level) {
+            Ok(MetalVersion::Metal3)
+        } else if is_metal_version_os_compatible(platform, MetalVersion::Metal4, target_os_level) {
+            Ok(MetalVersion::Metal4)
+        } else {
+            let os_str = target_os_level.unwrap_or("unknown");
+            Err(format!(
+                "Metal 3 or 4 is not supported on {} target OS level {}",
+                platform, os_str
+            ))
+        }
+    }
+}
+
+fn default_gpu_fields_for_target(
+    platform: Platform,
+    arch: Arch,
+    target_os_level: Option<&str>,
+) -> (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+) {
+    if is_metal_compatible(platform, arch) {
+        let metal_ver = if is_metal_version_os_compatible(
+            platform,
+            MetalVersion::Metal4,
+            target_os_level,
+        ) {
+            "metal4"
+        } else {
+            "metal3"
+        };
+        (
+            Some("metal".to_string()),
+            Some("".to_string()),
+            Some("".to_string()),
+            Some("".to_string()),
+            Some("".to_string()),
+            Some("".to_string()),
+            Some("apple7;apple8;apple9;apple10".to_string()),
+            Some(metal_ver.to_string()),
+        )
+    } else {
+        (
+            Some("".to_string()),
+            Some("".to_string()),
+            Some("".to_string()),
+            Some("".to_string()),
+            Some("".to_string()),
+            Some("".to_string()),
+            Some("".to_string()),
+            Some("".to_string()),
+        )
     }
 }
 
@@ -996,6 +1246,159 @@ impl ArchFeaturesReport {
         get_default_output_dir().join(self.filename())
     }
 
+    /// Applies GPU architecture configuration based on user options and target compatibility.
+    pub fn apply_gpu_configuration(
+        &mut self,
+        gpu_arch_opt: Option<&str>,
+        cuda_arch_opt: Option<&str>,
+        rocm_arch_opt: Option<&str>,
+        xpu_arch_opt: Option<&str>,
+        metal_family_opt: Option<&str>,
+        metal_version_opt: Option<&str>,
+    ) -> Result<(), String> {
+        let p = self.platform.parse::<Platform>().map_err(|e| e.to_string())?.resolve();
+        let a = self.arch.parse::<Arch>().map_err(|e| e.to_string())?.resolve();
+
+        let mut active_gpus: Vec<GPUArch> = Vec::new();
+        let mut user_set_gpu_arch = false;
+
+        if let Some(gpu_s) = gpu_arch_opt {
+            let trimmed = gpu_s.trim();
+            if !trimmed.is_empty() {
+                user_set_gpu_arch = true;
+                let parsed = GPUArch::parse_multivalue(trimmed)?;
+                if parsed.contains(&GPUArch::Native) {
+                    if parsed.len() > 1 {
+                        return Err(
+                            "Native GPU architecture cannot be combined with other GPU architectures".to_string(),
+                        );
+                    }
+                    if let Some(detected) = GPUArch::detect() {
+                        let is_compat = match detected {
+                            GPUArch::Cuda => is_cuda_compatible(p, a),
+                            GPUArch::Rocm => is_rocm_compatible(p, a),
+                            GPUArch::Xpu => is_xpu_compatible(p, a),
+                            GPUArch::Metal => is_metal_compatible(p, a),
+                            GPUArch::Native => false,
+                        };
+                        if is_compat {
+                            active_gpus.push(detected);
+                        }
+                    }
+                } else {
+                    for g in parsed {
+                        let is_compat = match g {
+                            GPUArch::Cuda => is_cuda_compatible(p, a),
+                            GPUArch::Rocm => is_rocm_compatible(p, a),
+                            GPUArch::Xpu => is_xpu_compatible(p, a),
+                            GPUArch::Metal => is_metal_compatible(p, a),
+                            GPUArch::Native => false,
+                        };
+                        if is_compat && !active_gpus.contains(&g) {
+                            active_gpus.push(g);
+                        }
+                    }
+                }
+            }
+        }
+
+        let has_cuda_input = cuda_arch_opt.map(|s| !s.trim().is_empty()).unwrap_or(false);
+        let has_rocm_input = rocm_arch_opt.map(|s| !s.trim().is_empty()).unwrap_or(false);
+        let has_xpu_input = xpu_arch_opt.map(|s| !s.trim().is_empty()).unwrap_or(false);
+        let has_metal_fam_input = metal_family_opt.map(|s| !s.trim().is_empty()).unwrap_or(false);
+        let has_metal_ver_input = metal_version_opt.map(|s| !s.trim().is_empty()).unwrap_or(false);
+        let has_metal_input = has_metal_fam_input || has_metal_ver_input;
+
+        if !user_set_gpu_arch {
+            if has_cuda_input || has_rocm_input || has_xpu_input || has_metal_input {
+                if has_cuda_input && is_cuda_compatible(p, a) && !active_gpus.contains(&GPUArch::Cuda) {
+                    active_gpus.push(GPUArch::Cuda);
+                }
+                if has_rocm_input && is_rocm_compatible(p, a) && !active_gpus.contains(&GPUArch::Rocm) {
+                    active_gpus.push(GPUArch::Rocm);
+                }
+                if has_xpu_input && is_xpu_compatible(p, a) && !active_gpus.contains(&GPUArch::Xpu) {
+                    active_gpus.push(GPUArch::Xpu);
+                }
+                if has_metal_input && is_metal_compatible(p, a) && !active_gpus.contains(&GPUArch::Metal) {
+                    active_gpus.push(GPUArch::Metal);
+                }
+            } else if is_metal_compatible(p, a) {
+                active_gpus.push(GPUArch::Metal);
+            }
+        }
+
+        self.gpu_arch = if active_gpus.is_empty() {
+            Some("".to_string())
+        } else {
+            Some(GPUArch::format_gpu_arch(&active_gpus))
+        };
+
+        if active_gpus.contains(&GPUArch::Cuda) {
+            let arches = match cuda_arch_opt {
+                Some(s) if !s.trim().is_empty() => CudaArch::parse_multivalue(s)?,
+                _ => vec![CudaArch::Sm_75],
+            };
+            self.cuda_arch = Some(CudaArch::format_cuda_arch(&arches));
+            self.cuda_sm_arch = Some(CudaArch::format_cuda_sm_arch(&arches));
+        } else {
+            self.cuda_arch = Some("".to_string());
+            self.cuda_sm_arch = Some("".to_string());
+        }
+
+        if active_gpus.contains(&GPUArch::Rocm) {
+            let arches = match rocm_arch_opt {
+                Some(s) if !s.trim().is_empty() => RocmArch::parse_multivalue(s)?,
+                _ => vec![RocmArch::Gfx1030],
+            };
+            self.rocm_arch = Some(RocmArch::format_rocm_arch(&arches));
+            self.rocm_gfx_arch = Some(RocmArch::format_rocm_gfx_arch(&arches));
+        } else {
+            self.rocm_arch = Some("".to_string());
+            self.rocm_gfx_arch = Some("".to_string());
+        }
+
+        if active_gpus.contains(&GPUArch::Xpu) {
+            let arches = match xpu_arch_opt {
+                Some(s) if !s.trim().is_empty() => XpuArch::parse_multivalue(s)?,
+                _ => vec![XpuArch::Bmg],
+            };
+            self.xpu_arch = Some(XpuArch::format_xpu_arch(&arches));
+        } else {
+            self.xpu_arch = Some("".to_string());
+        }
+
+        if active_gpus.contains(&GPUArch::Metal) {
+            let families = match metal_family_opt {
+                Some(s) if !s.trim().is_empty() => AppleGpuFamily::parse_multivalue(s)?,
+                _ => vec![
+                    AppleGpuFamily::Apple7,
+                    AppleGpuFamily::Apple8,
+                    AppleGpuFamily::Apple9,
+                    AppleGpuFamily::Apple10,
+                ],
+            };
+
+            let os_lvl = self.target_os_level.as_deref();
+            let is_default_fam = metal_family_opt.is_none() || metal_family_opt == Some("");
+            let metal_ver = resolve_metal_version_and_validate(
+                p,
+                &families,
+                metal_version_opt,
+                os_lvl,
+                is_default_fam,
+            )?;
+
+            self.metal_family = Some(AppleGpuFamily::format_metal_arch(&families));
+            self.metal_version = Some(metal_ver.arch_name().to_string());
+        } else {
+            self.metal_family = Some("".to_string());
+            self.metal_version = Some("".to_string());
+        }
+
+        Ok(())
+    }
+
     /// Creates a report for current host detected capabilities
     pub fn from_host(features: &CPUFeatures) -> Self {
         Self::from_host_with_vl(features, None)
@@ -1088,9 +1491,32 @@ impl ArchFeaturesReport {
         )
         .unwrap_or_else(|_| ("".to_string(), "".to_string(), "".to_string()));
 
+        let (
+            gpu_arch,
+            cuda_arch,
+            cuda_sm_arch,
+            rocm_arch,
+            rocm_gfx_arch,
+            xpu_arch,
+            metal_family,
+            metal_version,
+        ) = default_gpu_fields_for_target(
+            Platform::current(),
+            Arch::current(),
+            Some(&target_os_level),
+        );
+
         Self {
             platform,
             arch,
+            gpu_arch,
+            cuda_arch,
+            cuda_sm_arch,
+            rocm_arch,
+            rocm_gfx_arch,
+            xpu_arch,
+            metal_family,
+            metal_version,
             extensions,
             target_cpu: Some("native".to_string()),
             target_tune_cpu: Some("".to_string()),
@@ -1171,6 +1597,78 @@ impl ArchFeaturesReport {
         target_runtime_level: Option<&str>,
         target_is_simulator: bool,
     ) -> Result<Self, String> {
+        Self::evaluate_target_triple_with_cuda(
+            platform,
+            arch,
+            target_cpu_str,
+            target_tune_cpu_str,
+            min_cpu_arch_str,
+            enabled_ext_str,
+            disabled_ext_str,
+            requested_vl,
+            target_os_level,
+            target_runtime_level,
+            target_is_simulator,
+            None,
+        )
+    }
+
+    /// Evaluates configuration including target OS level, runtime level, simulator, and CUDA architecture(s)
+    pub fn evaluate_target_triple_with_cuda(
+        platform: Option<Platform>,
+        arch: Option<Arch>,
+        target_cpu_str: Option<&str>,
+        target_tune_cpu_str: Option<&str>,
+        min_cpu_arch_str: Option<&str>,
+        enabled_ext_str: Option<&str>,
+        disabled_ext_str: Option<&str>,
+        requested_vl: Option<CpuArchitectureVectorLength>,
+        target_os_level: Option<&str>,
+        target_runtime_level: Option<&str>,
+        target_is_simulator: bool,
+        cuda_arch_opt: Option<&str>,
+    ) -> Result<Self, String> {
+        Self::evaluate_target_triple_with_gpu(
+            platform,
+            arch,
+            target_cpu_str,
+            target_tune_cpu_str,
+            min_cpu_arch_str,
+            enabled_ext_str,
+            disabled_ext_str,
+            requested_vl,
+            target_os_level,
+            target_runtime_level,
+            target_is_simulator,
+            None,
+            cuda_arch_opt,
+            None,
+            None,
+            None,
+            None,
+        )
+    }
+
+    /// Evaluates configuration including target OS level, runtime level, simulator, and GPU architecture options
+    pub fn evaluate_target_triple_with_gpu(
+        platform: Option<Platform>,
+        arch: Option<Arch>,
+        target_cpu_str: Option<&str>,
+        target_tune_cpu_str: Option<&str>,
+        min_cpu_arch_str: Option<&str>,
+        enabled_ext_str: Option<&str>,
+        disabled_ext_str: Option<&str>,
+        requested_vl: Option<CpuArchitectureVectorLength>,
+        target_os_level: Option<&str>,
+        target_runtime_level: Option<&str>,
+        target_is_simulator: bool,
+        gpu_arch_opt: Option<&str>,
+        cuda_arch_opt: Option<&str>,
+        rocm_arch_opt: Option<&str>,
+        xpu_arch_opt: Option<&str>,
+        metal_family_opt: Option<&str>,
+        metal_version_opt: Option<&str>,
+    ) -> Result<Self, String> {
         let p = match platform {
             Some(plat) => plat.resolve(),
             None => Platform::current(),
@@ -1179,7 +1677,12 @@ impl ArchFeaturesReport {
             Some(arch_val) => arch_val.resolve(),
             None => match p {
                 Platform::Switch2 | Platform::Ios | Platform::Tvos | Platform::Xros => Arch::Arm64,
-                Platform::Xboxone | Platform::Xboxxs | Platform::Ps4 | Platform::Ps5 | Platform::Steamdeck | Platform::Steammachine => Arch::X86_64,
+                Platform::Xboxone
+                | Platform::Xboxxs
+                | Platform::Ps4
+                | Platform::Ps5
+                | Platform::Steamdeck
+                | Platform::Steammachine => Arch::X86_64,
                 _ => {
                     if p.is_arch_compatible(Arch::current()) {
                         Arch::current()
@@ -1214,7 +1717,7 @@ impl ArchFeaturesReport {
             .map(|s| s.trim().to_ascii_lowercase())
             .filter(|s| !s.is_empty());
 
-        match target_str_norm.as_deref() {
+        let mut report = match target_str_norm.as_deref() {
             Some("native") => {
                 if a == Arch::current() {
                     if enabled_ext_str.is_some() || disabled_ext_str.is_some() {
@@ -1365,7 +1868,18 @@ impl ArchFeaturesReport {
                     Ok(report)
                 }
             }
-        }
+        }?;
+
+        report.apply_gpu_configuration(
+            gpu_arch_opt,
+            cuda_arch_opt,
+            rocm_arch_opt,
+            xpu_arch_opt,
+            metal_family_opt,
+            metal_version_opt,
+        )?;
+
+        Ok(report)
     }
 
     /// Creates a report for a specific known TargetCpuArchitecture string
@@ -1566,9 +2080,28 @@ impl ArchFeaturesReport {
                     Some(format!("-m'tune={}'", tune_target_str))
                 };
 
+                let (
+                    gpu_arch,
+                    cuda_arch,
+                    cuda_sm_arch,
+                    rocm_arch,
+                    rocm_gfx_arch,
+                    xpu_arch,
+                    metal_family,
+                    metal_version,
+                ) = default_gpu_fields_for_target(platform, arch, Some(&target_os_level_val));
+
                 Ok(Self {
                     platform: platform.to_string(),
                     arch: arch.to_string(),
+                    gpu_arch,
+                    cuda_arch,
+                    cuda_sm_arch,
+                    rocm_arch,
+                    rocm_gfx_arch,
+                    xpu_arch,
+                    metal_family,
+                    metal_version,
                     extensions,
                     target_cpu: Some(target_name_str),
                     target_tune_cpu: Some(tune_target_str),
@@ -1721,9 +2254,28 @@ impl ArchFeaturesReport {
                     Some(format!("-m'tune={}'", tune_target_str))
                 };
 
+                let (
+                    gpu_arch,
+                    cuda_arch,
+                    cuda_sm_arch,
+                    rocm_arch,
+                    rocm_gfx_arch,
+                    xpu_arch,
+                    metal_family,
+                    metal_version,
+                ) = default_gpu_fields_for_target(platform, arch, Some(&target_os_level_val));
+
                 Ok(Self {
                     platform: platform.to_string(),
                     arch: arch.to_string(),
+                    gpu_arch,
+                    cuda_arch,
+                    cuda_sm_arch,
+                    rocm_arch,
+                    rocm_gfx_arch,
+                    xpu_arch,
+                    metal_family,
+                    metal_version,
                     extensions,
                     target_cpu: Some(target_name_str),
                     target_tune_cpu: Some(tune_target_str),
@@ -1845,9 +2397,28 @@ impl ArchFeaturesReport {
                     Some(format!("-m'tune={}'", tune_target_str))
                 };
 
+                let (
+                    gpu_arch,
+                    cuda_arch,
+                    cuda_sm_arch,
+                    rocm_arch,
+                    rocm_gfx_arch,
+                    xpu_arch,
+                    metal_family,
+                    metal_version,
+                ) = default_gpu_fields_for_target(platform, arch, Some(&target_os_level_val));
+
                 Ok(Self {
                     platform: platform.to_string(),
                     arch: arch.to_string(),
+                    gpu_arch,
+                    cuda_arch,
+                    cuda_sm_arch,
+                    rocm_arch,
+                    rocm_gfx_arch,
+                    xpu_arch,
+                    metal_family,
+                    metal_version,
                     extensions,
                     target_cpu: Some(target_name_str),
                     target_tune_cpu: Some(tune_target_str),
@@ -1908,6 +2479,17 @@ impl ArchFeaturesReport {
             target_is_simulator,
         )?;
 
+        let (
+            gpu_arch,
+            cuda_arch,
+            cuda_sm_arch,
+            rocm_arch,
+            rocm_gfx_arch,
+            xpu_arch,
+            metal_family,
+            metal_version,
+        ) = default_gpu_fields_for_target(platform, arch, Some(&target_os_level_val));
+
         match arch {
             Arch::X86_64 => {
                 let features = X64CPUFeatures::from_extensions_str(&extensions);
@@ -1947,6 +2529,14 @@ impl ArchFeaturesReport {
                 Ok(Self {
                     platform: platform.to_string(),
                     arch: arch.to_string(),
+                    gpu_arch,
+                    cuda_arch,
+                    cuda_sm_arch,
+                    rocm_arch,
+                    rocm_gfx_arch,
+                    xpu_arch,
+                    metal_family,
+                    metal_version,
                     extensions,
                     target_cpu: Some(target_cpu.to_string()),
                     target_tune_cpu: Some(tune_target_str),
@@ -2006,6 +2596,14 @@ impl ArchFeaturesReport {
                 Ok(Self {
                     platform: platform.to_string(),
                     arch: arch.to_string(),
+                    gpu_arch,
+                    cuda_arch,
+                    cuda_sm_arch,
+                    rocm_arch,
+                    rocm_gfx_arch,
+                    xpu_arch,
+                    metal_family,
+                    metal_version,
                     extensions,
                     target_cpu: Some(target_cpu.to_string()),
                     target_tune_cpu: Some(tune_target_str),
@@ -2050,6 +2648,14 @@ impl ArchFeaturesReport {
                 Ok(Self {
                     platform: platform.to_string(),
                     arch: arch.to_string(),
+                    gpu_arch,
+                    cuda_arch,
+                    cuda_sm_arch,
+                    rocm_arch,
+                    rocm_gfx_arch,
+                    xpu_arch,
+                    metal_family,
+                    metal_version,
                     extensions,
                     target_cpu: Some(target_cpu.clone()),
                     target_tune_cpu: Some(target_cpu),

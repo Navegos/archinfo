@@ -3,7 +3,7 @@
 // project: ArchInfo
 // file: src/arch/arm64/targets.rs
 // created: 2026-09-05
-// lastModified: 2026-09-17
+// lastModified: 2026-09-29
 
 use crate::platform::Platform;
 use serde::{Deserialize, Serialize};
@@ -78,6 +78,7 @@ pub enum TargetCpuArchitectureArm64 {
     /// Enabled features: FEAT_AES, FEAT_PMULL, FEAT_AdvSIMD, FEAT_CRC32, FEAT_FP, FEAT_LOR, FEAT_PAN, FEAT_PMUv3, FEAT_RDM, FEAT_SHA1, FEAT_SHA256, FEAT_VHE.
     /// Arch ARMv8.1-A enables additional features: FEAT_LSE.
     /// Requires (Clang >= 19.1.0).
+    /// Metal GPU hardware Family: apple3, metal version: metal.
     Apple_A10,        // ! Minimum viable iOS mobile core
 
     /// Cavium ThunderX2 T99, ARMv8.1-A, ARMv8-A isa extensions, AArch64 64-bit.
@@ -140,6 +141,7 @@ pub enum TargetCpuArchitectureArm64 {
 
     /// Apple A11, ARMv8.2-A, ARMv8.1-A, ARMv8-A isa extensions, AArch64 64-bit.
     /// Enabled features: FEAT_AES, FEAT_PMULL, FEAT_AdvSIMD, FEAT_CRC32, FEAT_DPB, FEAT_FP, FEAT_FP16, FEAT_LOR, FEAT_LSE, FEAT_PAN, FEAT_PAN2, FEAT_PMUv3, FEAT_RAS, FEAT_RASv1p1, FEAT_RDM, FEAT_SHA1, FEAT_SHA256, FEAT_UAO, FEAT_VHE.
+    /// Metal GPU hardware Family: apple4, metal version: metal.
     Apple_A11,        //  Capable (Mobile)
 
     /// Samsung Exynos M4, ARMv8.2-A, ARMv8.1-A, ARMv8-A isa extensions, AArch64 64-bit.
@@ -176,6 +178,7 @@ pub enum TargetCpuArchitectureArm64 {
     /// Apple A12, ARMv8.3-A, ARMv8.2-A, ARMv8.1-A, ARMv8-A isa extensions, AArch64 64-bit.
     /// Enabled features: FEAT_AES, FEAT_PMULL, FEAT_AdvSIMD, FEAT_CRC32, FEAT_DPB, FEAT_FCMA, FEAT_FP, FEAT_FP16, FEAT_JSCVT, FEAT_LOR, FEAT_LRCPC, FEAT_LSE, FEAT_PAN, FEAT_PAN2, FEAT_PAuth, FEAT_PMUv3, FEAT_RAS, FEAT_RASv1p1, FEAT_RDM, FEAT_SHA1, FEAT_SHA256, FEAT_UAO, FEAT_VHE.
     /// Arch ARMv8.3-A enables additional features: FEAT_CCIDX.
+    /// Metal GPU hardware Family: apple5, metal version: metal.
     Apple_A12,        //  Capable
 
     // Apple_S4,      // X Apple Watch chip (Cannot run desktop/mobile UE5 games)
@@ -198,16 +201,20 @@ pub enum TargetCpuArchitectureArm64 {
     /// Apple A13, ARMv8.4-A, ARMv8.3-A, ARMv8.2-A, ARMv8.1-A, ARMv8-A isa extensions, AArch64 64-bit.
     /// Enabled features: FEAT_AES, FEAT_PMULL, FEAT_AMUv1, FEAT_AdvSIMD, FEAT_CRC32, FEAT_DIT, FEAT_DPB, FEAT_DotProd, FEAT_FCMA, FEAT_FHM, FEAT_FP, FEAT_FP16, FEAT_FlagM, FEAT_JSCVT, FEAT_LOR, FEAT_LRCPC, FEAT_LRCPC2, FEAT_LSE, FEAT_LSE2, FEAT_MPAM, FEAT_NV, FEAT_NV2, FEAT_PAN, FEAT_PAN2, FEAT_PAuth, FEAT_PMUv3, FEAT_RAS, FEAT_RASv1p1, FEAT_RDM, FEAT_SEL2, FEAT_SHA1, FEAT_SHA256, FEAT_SHA3, FEAT_SHA512, FEAT_TLBIOS, FEAT_TLBIRANGE, FEAT_TRF, FEAT_UAO, FEAT_VHE.
     /// Arch ARMv8.4-A enables additional features: FEAT_CCIDX.
+    /// Metal GPU hardware Family: apple6, metal version: metal.
     Apple_A13,        //  Capable
 
     /// Apple A14, ARMv8.4-A, ARMv8.3-A, ARMv8.2-A, ARMv8.1-A, ARMv8-A isa extensions, AArch64 64-bit.
     /// Enabled features: FEAT_AES, FEAT_PMULL, FEAT_AMUv1, FEAT_AdvSIMD, FEAT_CRC32, FEAT_CSV2_2, FEAT_DIT, FEAT_DPB, FEAT_DPB2, FEAT_DotProd, FEAT_FCMA, FEAT_FHM, FEAT_FP, FEAT_FP16, FEAT_FRINTTS, FEAT_FlagM, FEAT_FlagM2, FEAT_JSCVT, FEAT_LOR, FEAT_LRCPC, FEAT_LRCPC2, FEAT_LSE, FEAT_LSE2, FEAT_MPAM, FEAT_NV, FEAT_NV2, FEAT_PAN, FEAT_PAN2, FEAT_PAuth, FEAT_PMUv3, FEAT_RAS, FEAT_RASv1p1, FEAT_RDM, FEAT_SB, FEAT_SEL2, FEAT_SHA1, FEAT_SHA256, FEAT_SHA3, FEAT_SHA512, FEAT_SPECRES, FEAT_SSBS, FEAT_SSBS2, FEAT_TLBIOS, FEAT_TLBIRANGE, FEAT_TRF, FEAT_UAO, FEAT_VHE.
     /// Arch ARMv8.4-A enables additional features: FEAT_CCIDX.
+    /// Metal GPU hardware Family: apple7, metal version: metal 3 & 4.
     Apple_A14,        //  Capable
 
     /// Apple M1, ARMv8.4-A, ARMv8.3-A, ARMv8.2-A, ARMv8.1-A, ARMv8-A isa extensions, AArch64 64-bit.
     /// Enabled features: FEAT_AES, FEAT_PMULL, FEAT_AMUv1, FEAT_AdvSIMD, FEAT_CRC32, FEAT_CSV2_2, FEAT_DIT, FEAT_DPB, FEAT_DPB2, FEAT_DotProd, FEAT_FCMA, FEAT_FHM, FEAT_FP, FEAT_FP16, FEAT_FRINTTS, FEAT_FlagM, FEAT_FlagM2, FEAT_JSCVT, FEAT_LOR, FEAT_LRCPC, FEAT_LRCPC2, FEAT_LSE, FEAT_LSE2, FEAT_MPAM, FEAT_NV, FEAT_NV2, FEAT_PAN, FEAT_PAN2, FEAT_PAuth, FEAT_PMUv3, FEAT_RAS, FEAT_RASv1p1, FEAT_RDM, FEAT_SB, FEAT_SEL2, FEAT_SHA1, FEAT_SHA256, FEAT_SHA3, FEAT_SHA512, FEAT_SPECRES, FEAT_SSBS, FEAT_SSBS2, FEAT_TLBIOS, FEAT_TLBIRANGE, FEAT_TRF, FEAT_UAO, FEAT_VHE.
     /// Arch ARMv8.4-A enables additional features: FEAT_CCIDX.
+    /// This chip feature Apple Silicon unified memory pools and full hardware compatibility with MLX.
+    /// Metal GPU hardware Family: apple7, metal version: metal 3 & 4.
     Apple_M1,         //  Capable (Excellent baseline for macOS / Windows on ARM via translation)
 
     // Apple_S6,      // X Apple Watch chip
@@ -229,26 +236,34 @@ pub enum TargetCpuArchitectureArm64 {
     /// Apple A15, ARMv8.6-A, ARMv8.5-A, ARMv8.4-A, ARMv8.3-A, ARMv8.2-A, ARMv8.1-A, ARMv8-A isa extensions, AArch64 64-bit.
     /// Enabled features: FEAT_AES, FEAT_PMULL, FEAT_AMUv1, FEAT_AMUv1p1, FEAT_AdvSIMD, FEAT_BF16, FEAT_BTI, FEAT_CRC32, FEAT_CSV2_2, FEAT_DIT, FEAT_DPB, FEAT_DPB2, FEAT_DotProd, FEAT_ECV, FEAT_FCMA, FEAT_FGT, FEAT_FHM, FEAT_FP, FEAT_FP16, FEAT_FPAC, FEAT_FRINTTS, FEAT_FlagM, FEAT_FlagM2, FEAT_I8MM, FEAT_JSCVT, FEAT_LOR, FEAT_LRCPC, FEAT_LRCPC2, FEAT_LSE, FEAT_LSE2, FEAT_MPAM, FEAT_NV, FEAT_NV2, FEAT_PAN, FEAT_PAN2, FEAT_PAuth, FEAT_PMUv3, FEAT_RAS, FEAT_RASv1p1, FEAT_RDM, FEAT_SB, FEAT_SEL2, FEAT_SHA1, FEAT_SHA256, FEAT_SHA3, FEAT_SHA512, FEAT_SPECRES, FEAT_SSBS, FEAT_SSBS2, FEAT_TLBIOS, FEAT_TLBIRANGE, FEAT_TRF, FEAT_UAO, FEAT_VHE.
     /// Arch ARMv8.6-A enables additional features: FEAT_CCIDX.
+    /// Metal GPU hardware Family: apple8, metal version: metal 3 & 4.
     Apple_A15,        //  Capable (iOS / iPadOS)
 
     /// Apple A16, ARMv8.6-A, ARMv8.5-A, ARMv8.4-A, ARMv8.3-A, ARMv8.2-A, ARMv8.1-A, ARMv8-A isa extensions, AArch64 64-bit.
     /// Enabled features: FEAT_AES, FEAT_PMULL, FEAT_AMUv1, FEAT_AMUv1p1, FEAT_AdvSIMD, FEAT_BF16, FEAT_BTI, FEAT_CRC32, FEAT_CSV2_2, FEAT_DIT, FEAT_DPB, FEAT_DPB2, FEAT_DotProd, FEAT_ECV, FEAT_FCMA, FEAT_FGT, FEAT_FHM, FEAT_FP, FEAT_FP16, FEAT_FPAC, FEAT_FRINTTS, FEAT_FlagM, FEAT_FlagM2, FEAT_I8MM, FEAT_JSCVT, FEAT_LOR, FEAT_LRCPC, FEAT_LRCPC2, FEAT_LSE, FEAT_LSE2, FEAT_MPAM, FEAT_NV, FEAT_NV2, FEAT_PAN, FEAT_PAN2, FEAT_PAuth, FEAT_PMUv3, FEAT_RAS, FEAT_RASv1p1, FEAT_RDM, FEAT_SB, FEAT_SEL2, FEAT_SHA1, FEAT_SHA256, FEAT_SHA3, FEAT_SHA512, FEAT_SPECRES, FEAT_SSBS, FEAT_SSBS2, FEAT_TLBIOS, FEAT_TLBIRANGE, FEAT_TRF, FEAT_UAO, FEAT_VHE.
     /// Arch ARMv8.6-A enables additional features: FEAT_CCIDX.
+    /// Metal GPU hardware Family: apple8, metal version: metal 3 & 4.
     Apple_A16,        //  Capable
 
     /// Apple A17, ARMv8.6-A, ARMv8.5-A, ARMv8.4-A, ARMv8.3-A, ARMv8.2-A, ARMv8.1-A, ARMv8-A isa extensions, AArch64 64-bit.
     /// Enabled features: FEAT_AES, FEAT_PMULL, FEAT_AMUv1, FEAT_AMUv1p1, FEAT_AdvSIMD, FEAT_BF16, FEAT_BTI, FEAT_CRC32, FEAT_CSV2_2, FEAT_DIT, FEAT_DPB, FEAT_DPB2, FEAT_DotProd, FEAT_ECV, FEAT_FCMA, FEAT_FGT, FEAT_FHM, FEAT_FP, FEAT_FP16, FEAT_FPAC, FEAT_FRINTTS, FEAT_FlagM, FEAT_FlagM2, FEAT_I8MM, FEAT_JSCVT, FEAT_LOR, FEAT_LRCPC, FEAT_LRCPC2, FEAT_LSE, FEAT_LSE2, FEAT_MPAM, FEAT_NV, FEAT_NV2, FEAT_PAN, FEAT_PAN2, FEAT_PAuth, FEAT_PMUv3, FEAT_RAS, FEAT_RASv1p1, FEAT_RDM, FEAT_SB, FEAT_SEL2, FEAT_SHA1, FEAT_SHA256, FEAT_SHA3, FEAT_SHA512, FEAT_SPECRES, FEAT_SSBS, FEAT_SSBS2, FEAT_TLBIOS, FEAT_TLBIRANGE, FEAT_TRF, FEAT_UAO, FEAT_VHE.
     /// Arch ARMv8.6-A enables additional features: FEAT_CCIDX.
+    /// This chip feature Apple Silicon unified memory pools and full hardware compatibility with MLX.
+    /// Metal GPU hardware Family: apple9, metal version: metal 3 & 4.
     Apple_A17,        //  Capable
 
     /// Apple M2, ARMv8.6-A, ARMv8.5-A, ARMv8.4-A, ARMv8.3-A, ARMv8.2-A, ARMv8.1-A, ARMv8-A isa extensions, AArch64 64-bit.
     /// Enabled features: FEAT_AES, FEAT_PMULL, FEAT_AMUv1, FEAT_AMUv1p1, FEAT_AdvSIMD, FEAT_BF16, FEAT_BTI, FEAT_CRC32, FEAT_CSV2_2, FEAT_DIT, FEAT_DPB, FEAT_DPB2, FEAT_DotProd, FEAT_ECV, FEAT_FCMA, FEAT_FGT, FEAT_FHM, FEAT_FP, FEAT_FP16, FEAT_FPAC, FEAT_FRINTTS, FEAT_FlagM, FEAT_FlagM2, FEAT_I8MM, FEAT_JSCVT, FEAT_LOR, FEAT_LRCPC, FEAT_LRCPC2, FEAT_LSE, FEAT_LSE2, FEAT_MPAM, FEAT_NV, FEAT_NV2, FEAT_PAN, FEAT_PAN2, FEAT_PAuth, FEAT_PMUv3, FEAT_RAS, FEAT_RASv1p1, FEAT_RDM, FEAT_SB, FEAT_SEL2, FEAT_SHA1, FEAT_SHA256, FEAT_SHA3, FEAT_SHA512, FEAT_SPECRES, FEAT_SSBS, FEAT_SSBS2, FEAT_TLBIOS, FEAT_TLBIRANGE, FEAT_TRF, FEAT_UAO, FEAT_VHE.
     /// Arch ARMv8.6-A enables additional features: FEAT_CCIDX.
+    /// This chip feature Apple Silicon unified memory pools and full hardware compatibility with MLX.
+    /// Metal GPU hardware Family: apple8, metal version: metal 3 & 4.
     Apple_M2,         //  Capable (Native macOS target)
 
     /// Apple M3, ARMv8.6-A, ARMv8.5-A, ARMv8.4-A, ARMv8.3-A, ARMv8.2-A, ARMv8.1-A, ARMv8-A isa extensions, AArch64 64-bit.
     /// Enabled features: FEAT_AES, FEAT_PMULL, FEAT_AMUv1, FEAT_AMUv1p1, FEAT_AdvSIMD, FEAT_BF16, FEAT_BTI, FEAT_CRC32, FEAT_CSV2_2, FEAT_DIT, FEAT_DPB, FEAT_DPB2, FEAT_DotProd, FEAT_ECV, FEAT_FCMA, FEAT_FGT, FEAT_FHM, FEAT_FP, FEAT_FP16, FEAT_FPAC, FEAT_FRINTTS, FEAT_FlagM, FEAT_FlagM2, FEAT_I8MM, FEAT_JSCVT, FEAT_LOR, FEAT_LRCPC, FEAT_LRCPC2, FEAT_LSE, FEAT_LSE2, FEAT_MPAM, FEAT_NV, FEAT_NV2, FEAT_PAN, FEAT_PAN2, FEAT_PAuth, FEAT_PMUv3, FEAT_RAS, FEAT_RASv1p1, FEAT_RDM, FEAT_SB, FEAT_SEL2, FEAT_SHA1, FEAT_SHA256, FEAT_SHA3, FEAT_SHA512, FEAT_SPECRES, FEAT_SSBS, FEAT_SSBS2, FEAT_TLBIOS, FEAT_TLBIRANGE, FEAT_TRF, FEAT_UAO, FEAT_VHE.
     /// Arch ARMv8.6-A enables additional features: FEAT_CCIDX.
+    /// This chip feature Apple Silicon unified memory pools and full hardware compatibility with MLX.
+    /// Metal GPU hardware Family: apple9, metal version: metal 3 & 4.
     Apple_M3,         //  Capable (Native macOS target)
 
     // Apple_S9,      // X Apple Watch chip
@@ -379,12 +394,16 @@ pub enum TargetCpuArchitectureArm64 {
     /// Enabled features: FEAT_AES, FEAT_PMULL, FEAT_AMUv1, FEAT_AMUv1p1, FEAT_AdvSIMD, FEAT_BF16, FEAT_BTI, FEAT_CRC32, FEAT_CSV2_2, FEAT_DIT, FEAT_DPB, FEAT_DPB2, FEAT_DotProd, FEAT_ECV, FEAT_FCMA, FEAT_FGT, FEAT_FHM, FEAT_FP, FEAT_FP16, FEAT_FPAC, FEAT_FRINTTS, FEAT_FlagM, FEAT_FlagM2, FEAT_I8MM, FEAT_JSCVT, FEAT_LOR, FEAT_LRCPC, FEAT_LRCPC2, FEAT_LSE, FEAT_LSE2, FEAT_MPAM, FEAT_NV, FEAT_NV2, FEAT_PAN, FEAT_PAN2, FEAT_PAuth, FEAT_PMUv3, FEAT_RAS, FEAT_RASv1p1, FEAT_RDM, FEAT_SB, FEAT_SEL2, FEAT_SHA1, FEAT_SHA256, FEAT_SHA3, FEAT_SHA512, FEAT_SME, FEAT_SME2, FEAT_SME_F64F64, FEAT_SME_I16I64, FEAT_SPECRES, FEAT_TLBIOS, FEAT_TLBIRANGE, FEAT_TRF, FEAT_UAO, FEAT_VHE, FEAT_WFxT, FEAT_XS.
     /// Arch ARMv9.2-A enables additional features: FEAT_CCIDX, FEAT_MEC, FEAT_RME, FEAT_SPEv1p2, FEAT_SSBS, FEAT_SSBS2, FEAT_SVE, FEAT_SVE2.
     /// No SVE SVE2 isa extensions.
+    /// This chip feature Apple Silicon unified memory pools and full hardware compatibility with MLX.
+    /// Metal GPU hardware Family: apple9, metal version: metal 3 & 4.
     Apple_A18,        //  Capable
 
     /// Apple M4, ARMv9.2-A, ARMv9.1-A, ARMv9-A, ARMv8.9-A, ARMv8.8-A, ARMv8.7-A, ARMv8.6-A, ARMv8.5-A, ARMv8.4-A, ARMv8.3-A, ARMv8.2-A, ARMv8.1-A, ARMv8-A isa extensions, AArch64 64-bit.
     /// Enabled features: FEAT_AES, FEAT_PMULL, FEAT_AMUv1, FEAT_AMUv1p1, FEAT_AdvSIMD, FEAT_BF16, FEAT_BTI, FEAT_CRC32, FEAT_CSV2_2, FEAT_DIT, FEAT_DPB, FEAT_DPB2, FEAT_DotProd, FEAT_ECV, FEAT_FCMA, FEAT_FGT, FEAT_FHM, FEAT_FP, FEAT_FP16, FEAT_FPAC, FEAT_FRINTTS, FEAT_FlagM, FEAT_FlagM2, FEAT_I8MM, FEAT_JSCVT, FEAT_LOR, FEAT_LRCPC, FEAT_LRCPC2, FEAT_LSE, FEAT_LSE2, FEAT_MPAM, FEAT_NV, FEAT_NV2, FEAT_PAN, FEAT_PAN2, FEAT_PAuth, FEAT_PMUv3, FEAT_RAS, FEAT_RASv1p1, FEAT_RDM, FEAT_SB, FEAT_SEL2, FEAT_SHA1, FEAT_SHA256, FEAT_SHA3, FEAT_SHA512, FEAT_SME, FEAT_SME2, FEAT_SME_F64F64, FEAT_SME_I16I64, FEAT_SPECRES, FEAT_TLBIOS, FEAT_TLBIRANGE, FEAT_TRF, FEAT_UAO, FEAT_VHE, FEAT_WFxT, FEAT_XS.
     /// Arch ARMv9.2-A enables additional features: FEAT_CCIDX, FEAT_MEC, FEAT_RME, FEAT_SPEv1p2, FEAT_SSBS, FEAT_SSBS2, FEAT_SVE, FEAT_SVE2.
     /// No SVE SVE2 isa extensions.
+    /// This chip feature Apple Silicon unified memory pools and full hardware compatibility with MLX.
+    /// Metal GPU hardware Family: apple9, metal version: metal 3 & 4.
     Apple_M4,         //  Capable (Native macOS/iPadOS high-end target)
     
     /// Nvidia Gb10, ARMv9.2-A, ARMv9.1-A, ARMv9-A, ARMv8.9-A, ARMv8.8-A, ARMv8.7-A, ARMv8.6-A, ARMv8.5-A, ARMv8.4-A, ARMv8.3-A, ARMv8.2-A, ARMv8.1-A, ARMv8-A isa extensions, AArch64 64-bit.
@@ -433,12 +452,17 @@ pub enum TargetCpuArchitectureArm64 {
     /// Enabled features: FEAT_AES, FEAT_PMULL, FEAT_AMUv1, FEAT_AMUv1p1, FEAT_AdvSIMD, FEAT_BF16, FEAT_BTI, FEAT_CRC32, FEAT_CSSC, FEAT_CSV2_2, FEAT_DIT, FEAT_DPB, FEAT_DPB2, FEAT_DotProd, FEAT_ECV, FEAT_FCMA, FEAT_FGT, FEAT_FHM, FEAT_FP, FEAT_FP16, FEAT_FPAC, FEAT_FRINTTS, FEAT_FlagM, FEAT_FlagM2, FEAT_HBC, FEAT_I8MM, FEAT_JSCVT, FEAT_LOR, FEAT_LRCPC, FEAT_LRCPC2, FEAT_LSE, FEAT_LSE2, FEAT_MPAM, FEAT_MTE, FEAT_MTE2, FEAT_NV, FEAT_NV2, FEAT_PAN, FEAT_PAN2, FEAT_PAuth, FEAT_PMUv3, FEAT_RAS, FEAT_RASv1p1, FEAT_RDM, FEAT_SB, FEAT_SEL2, FEAT_SHA1, FEAT_SHA256, FEAT_SHA3, FEAT_SHA512, FEAT_SME, FEAT_SME2, FEAT_SME2p1, FEAT_SME_B16B16, FEAT_SME_F16F16, FEAT_SME_F64F64, FEAT_SME_I16I64, FEAT_SPECRES, FEAT_SPECRES2, FEAT_SVE_B16B16, FEAT_TLBIOS, FEAT_TLBIRANGE, FEAT_TRF, FEAT_UAO, FEAT_VHE, FEAT_WFxT, FEAT_XS.
     /// Arch ARMv9.4-A enables additional features: FEAT_CCIDX, FEAT_MEC, FEAT_MOPS, FEAT_NMI, FEAT_GICv3_NMI, FEAT_PRFMSLC, FEAT_RASv2, FEAT_RME, FEAT_SPEv1p2, FEAT_SSBS, FEAT_SSBS2, FEAT_SVE, FEAT_SVE2, FEAT_SVE2p1.
     /// No SVE SVE2 isa extensions.
+    /// This chip feature Apple Silicon unified memory pools and full hardware compatibility with MLX.
+    /// Metal GPU hardware Family: apple10, metal version: metal 3 & 4.
     Apple_A19,        //  Capable
 
     /// Apple M5, ARMv9.4-A, ARMv9.3-A, ARMv9.2-A, ARMv9.1-A, ARMv9-A, ARMv8.9-A, ARMv8.8-A, ARMv8.7-A, ARMv8.6-A, ARMv8.5-A, ARMv8.4-A, ARMv8.3-A, ARMv8.2-A, ARMv8.1-A, ARMv8-A isa extensions, AArch64 64-bit.
     /// Enabled features: FEAT_AES, FEAT_PMULL, FEAT_AMUv1, FEAT_AMUv1p1, FEAT_AdvSIMD, FEAT_BF16, FEAT_BTI, FEAT_CRC32, FEAT_CSSC, FEAT_CSV2_2, FEAT_DIT, FEAT_DPB, FEAT_DPB2, FEAT_DotProd, FEAT_ECV, FEAT_FCMA, FEAT_FGT, FEAT_FHM, FEAT_FP, FEAT_FP16, FEAT_FPAC, FEAT_FRINTTS, FEAT_FlagM, FEAT_FlagM2, FEAT_HBC, FEAT_I8MM, FEAT_JSCVT, FEAT_LOR, FEAT_LRCPC, FEAT_LRCPC2, FEAT_LSE, FEAT_LSE2, FEAT_MPAM, FEAT_MTE, FEAT_MTE2, FEAT_NV, FEAT_NV2, FEAT_PAN, FEAT_PAN2, FEAT_PAuth, FEAT_PMUv3, FEAT_RAS, FEAT_RASv1p1, FEAT_RDM, FEAT_SB, FEAT_SEL2, FEAT_SHA1, FEAT_SHA256, FEAT_SHA3, FEAT_SHA512, FEAT_SME, FEAT_SME2, FEAT_SME2p1, FEAT_SME_B16B16, FEAT_SME_F16F16, FEAT_SME_F64F64, FEAT_SME_I16I64, FEAT_SPECRES, FEAT_SPECRES2, FEAT_SVE_B16B16, FEAT_TLBIOS, FEAT_TLBIRANGE, FEAT_TRF, FEAT_UAO, FEAT_VHE, FEAT_WFxT, FEAT_XS.
     /// Arch ARMv9.4-A enables additional features: FEAT_CCIDX, FEAT_MEC, FEAT_MOPS, FEAT_NMI, FEAT_GICv3_NMI, FEAT_PRFMSLC, FEAT_RASv2, FEAT_RME, FEAT_SPEv1p2, FEAT_SSBS, FEAT_SSBS2, FEAT_SVE, FEAT_SVE2, FEAT_SVE2p1.
     /// No SVE SVE2 isa extensions.
+    /// This chip feature Apple Silicon unified memory pools and full hardware compatibility with MLX.
+    /// (Features hardware-level Neural Accelerators optimized specifically for MLX matrix operations), requires metal version 4.
+    /// Metal GPU hardware Family: apple10, metal version: metal 3 & 4.
     Apple_M5,         //  Capable
 }
 

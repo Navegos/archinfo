@@ -44,3 +44,7 @@
 dist/
 release-assets/
 release_notes.md
+
+
+#Ignore vscode AI rules
+.github\instructions\codacy.instructions.md
